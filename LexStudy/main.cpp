@@ -1,86 +1,252 @@
-//
-//void main()
-//{
-//    int a, b;
-//    b =a*2;
-//}
-//  main.cpp
-//  LexStudy
-//
-//  Created by  yangxuefeng on 2018/3/10.
-//  Copyright © 2018年  yangxuefeng. All rights reserved.
-//
-#include <stdio.h>
-#include <string.h>
-#include <iostream>
+/*
+ 待分析的简单语言的语法
+ 用扩充的BNF表示如下：
+ ⑴<程序>：：=begin<语句串>end     begin a:=9; x:=2*3; b:=a+x end #
+ ⑵<语句串>：：=<语句>{；<语句>}
+ ⑶<语句>：：=<赋值语句>
+ ⑷<赋值语句>：：=ID：=<表达式>
+ ⑸<表达式>：：=<项>{+<项> | -<项>}
+ ⑹<项>：：=<因子>{*<因子> | /<因子>
+ ⑺<因子>：：=ID | NUM | （<表达式>）
+ //http://blog.csdn.net/xiaoyuge16/article/details/51581260?locationNum=1&fps=1
+ */
 
-using namespace std;
-char prog[80]={" void main() \n { int a,b;\n b=a*2;}"};
-char token[8];
-char ch;
-int syn,p,m=0,n,row,sum=0;
-char *rwtab[8]={"begin","if","then","while","do","end","int","void"};
 
-void scaner()
+
+#include "stdio.h"
+#include "string.h"
+char prog[100],token[8],ch;//prog[100]，用来存储要处理的对象，token用来与关键字比较，ch用来存储一个字符
+char *rwtab[6]={"begin","if","then","while","do","end"};//关键字表
+int syn,p,m,n,sum;
+/*syn是种别码，p为prog数组的指针，m为token数组的指针，n为rwtab数组的指针，sum为词法分析器里的数字数值大小*/
+int flag;//flag与判断是否end有关
+
+void factor(void);//因式 factor
+void expression(void);//表达式 expression
+void yucu(void);
+void term(void);//项 term
+void statement(void);// 语句 statement
+void parser(void);
+void scaner(void);//扫描器
+
+
+int main(void)
 {
-    /*
-     共分为三大块，分别是标示符、数字、符号，对应下面的 if   else if  和 else
-     
-     
-     */
-    for(n=0;n<8;n++) token[n]=NULL;
-    ch=prog[p++];
-    while(ch==' ')
+    p=flag=0;
+    printf("\nplease input a string (end with '#'): \n");
+    
+    /*从命令行读取要处理的对象，并存储在prog[]数组中*/
+    do
     {
-        ch=prog[p];
-        p++;
+        scanf("%c",&ch);
+        //printf("\n input %c now\n",ch);
+        prog[p++]=ch;
+    }while(ch!='#');
+    
+    p=0;
+    scaner();//主要完成赋值种别码等词法分析功能,获得第一个单词
+    parser();//调用各种递归子程序，完成语法分析的过程
+    //getch();
+}
+
+/*调用各种递归子程序，完成语法分析的过程*/
+void parser(void)
+{
+    if(syn==1)//begin
+    {
+        scaner();       /*读下一个单词符号*/
+        yucu();         /*调用yucu()函数；*/
+        
+        if(syn==6)//end
+        {
+            scaner();
+            if((syn==0)&&(flag==0))//出现#且flag=0
+                printf("success!\n");
+        }
+        else
+        {
+            if(flag!=1) printf("the string haven't got a 'end'!\n");//flag来判断是否end
+            flag=1;
+        }
     }
-    if((ch>='a'&&ch<='z')||(ch>='A'&&ch<='Z'))  //可能是标示符或者变量名
+    else
     {
-        m=0;
-        while((ch>='0'&&ch<='9')||(ch>='a'&&ch<='z')||(ch>='A'&&ch<='Z'))
+        printf("haven't got a 'begin'!\n");
+        flag=1;
+    }
+    
+    return;
+}
+
+void yucu(void)
+{
+    statement();         /*调用函数statement();*/
+    
+    while(syn==26)//分号
+    {
+        scaner();          /*读下一个单词符号*/
+        if(syn!=6)
+            statement();         /*调用函数statement();*/
+    }
+    
+    return;
+}
+
+void statement(void)
+{
+    if(syn==10)
+    {
+        scaner();        /*读下一个单词符号*/
+        if(syn==18)
+        {
+            scaner();      /*读下一个单词符号*/
+            expression();      /*调用函数expression();*/
+        }
+        else
+        {
+            printf("the sing ':=' is wrong!\n");
+            flag=1;
+        }
+    }
+    else
+    {
+        printf("wrong sentence!\n");
+        flag=1;
+    }
+    
+    return;
+}
+
+void expression(void)
+{
+    term();
+    
+    while((syn==13)||(syn==14))
+    {
+        scaner();             /*读下一个单词符号*/
+        term();               /*调用函数term();*/
+    }
+    
+    return;
+}
+
+void term(void)
+{
+    factor();
+    
+    while((syn==15)||(syn==16))
+    {
+        scaner();             /*读下一个单词符号*/
+        factor();              /*调用函数factor(); */
+    }
+    
+    return;
+}
+
+void factor(void)//因式处理函数
+{
+    if((syn==10)||(syn==11))//标识符，数字
+    {
+        scaner();
+    }
+    else if(syn==27)//开头是左括号（
+    {
+        scaner();           /*读下一个单词符号*/
+        expression();        /*调用函数statement();*/
+        
+        if(syn==28)//出现右括号）
+        {
+            scaner();          /*读下一个单词符号*/
+        }
+        else
+        {
+            printf("the error on '('\n");
+            flag=1;
+        }
+    }
+    else
+    {
+        printf("the expression error!\n");
+        flag=1;
+    }
+    
+    return;
+}
+
+/*主要完成赋值种别码等词法分析功能*/
+void scaner(void)//扫描器，词法分析器内容
+{
+    sum=0;//数字初始化为0
+    
+    for(m=0;m<8;m++)//初始化token
+        token[m++]=NULL;
+    
+    m=0;//m为token的指针
+    ch=prog[p++];//数组指针+1
+    
+    while(ch==' ')//遇到空格+1
+        ch=prog[p++];
+    
+    if(((ch<='z')&&(ch>='a'))||((ch<='Z')&&(ch>='A')))//遇到字母
+    {
+        while(((ch<='z')&&(ch>='a'))||((ch<='Z')&&(ch>='A'))||((ch>='0')&&(ch<='9')))
         {
             token[m++]=ch;
-            ch=prog[p++];
+            ch=prog[p++];//p+1,下次循环使用
         }
-        token[m++]='\0';
-        p--;
-        syn=10;
-        for(n=0;n<8;n++)  //将识别出来的字符和已定义的标示符作比较，
-            if(strcmp(token,rwtab[n])==0)
+        p--;//循环跳出，要－1
+        syn=10;//10，字母开头
+        token[m++]='\0';//\0为字符串结束符
+        
+        /*判别是否为关键字*/
+        for(n=0;n<6;n++)//n为rwtab的指针
+            if(strcmp(token,rwtab[n])==0)//strcmp返回值为0，则两个参数大小相同
             {
                 syn=n+1;
                 break;
             }
     }
-    else if((ch>='0'&&ch<='9'))  //数字
+    
+    
+    else if((ch>='0')&&(ch<='9'))//遇到数字
     {
+        while((ch>='0')&&(ch<='9'))
         {
-            sum=0;
-            while((ch>='0'&&ch<='9'))
-            {
-                sum=sum*10+ch-'0';
-                ch=prog[p++];
-            }
+            sum=sum*10+ch-'0';
+            ch=prog[p++];
         }
-        p--;
-        syn=11;
-        if(sum>32767)
-            syn=-1;
+        p--;//回溯
+        syn=11;//11为数字
     }
-    else switch(ch)   //其他字符
+    
+    /*除数字和字母开头以外的其他符号*/
+    else
+        switch(ch)
     {
-        case'<':m=0;token[m++]=ch;
+        case '<':
+            m=0;
             ch=prog[p++];
             if(ch=='>')
             {
                 syn=21;
-                token[m++]=ch;
             }
             else if(ch=='=')
             {
                 syn=22;
-                token[m++]=ch;
+            }
+            else
+            {
+                syn=20;
+                p--;//回溯
+            }
+            break;
+            
+        case '>':
+            m=0;
+            ch=prog[p++];
+            if(ch=='=')
+            {
+                syn=24;
             }
             else
             {
@@ -88,25 +254,13 @@ void scaner()
                 p--;
             }
             break;
-        case'>':m=0;token[m++]=ch;
-            ch=prog[p++];
-            if(ch=='=')
-            {
-                syn=24;
-                token[m++]=ch;
-            }
-            else
-            {
-                syn=20;
-                p--;
-            }
-            break;
-        case':':m=0;token[m++]=ch;
+            
+        case ':':
+            m=0;
             ch=prog[p++];
             if(ch=='=')
             {
                 syn=18;
-                token[m++]=ch;
             }
             else
             {
@@ -114,46 +268,46 @@ void scaner()
                 p--;
             }
             break;
-        case'*':syn=13;token[0]=ch;break;
-        case'/':syn=14;token[0]=ch;break;
-        case'+':syn=15;token[0]=ch;break;
-        case'-':syn=16;token[0]=ch;break;
-        case'=':syn=25;token[0]=ch;break;
-        case';':syn=26;token[0]=ch;break;
-        case'(':syn=27;token[0]=ch;break;
-        case')':syn=28;token[0]=ch;break;
-        case'#':syn=0;token[0]=ch;break;
-        case'{':syn=29;token[0]=ch;break;
-        case '}':syn =30;token[0]=ch;break;
             
-        case'\n':syn=-2;break;
-        default: syn=-1;break;
+        case '+':
+            syn=13;
+            break;
+            
+        case '-':
+            syn=14;
+            break;
+            
+        case '*':
+            syn=15;
+            break;
+            
+        case '/':
+            syn=16;
+            break;
+            
+        case '(':
+            syn=27;
+            break;
+            
+        case ')':
+            syn=28;
+            break;
+            
+        case '=':
+            syn=25;
+            break;
+            
+        case ';':
+            syn=26;
+            break;
+            
+        case '#':
+            syn=0;
+            break;
+            
+        default:
+            syn=-1;
+            break;
     }
 }
 
-int main()
-{
-    p=0;
-    row=1;
-//    cout<<"Please input string:"<<endl;
-//    do
-//    {
-//        cin.get(ch);
-//        prog[p++]=ch;
-//    }
-//    while(ch!='#');
-
-    p=0;
-    do
-    {
-        scaner();
-        switch(syn)
-        {
-            case 11: cout<<"("<<syn<<","<<sum<<")"<<endl; break;
-            case -1: cout<<"Error in row "<<row<<"!"<<endl; break;
-            case -2: row=row++;break;
-            default: cout<<"("<<syn<<","<<token<<")"<<endl;break;
-        }
-    }
-    while (syn!=0);
-}
